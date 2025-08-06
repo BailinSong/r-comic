@@ -1,0 +1,39 @@
+# Build outputs
+build/
+build/bin
+r-comic
+r-comic.exe
+r-comic.app
+
+# Frontend build files
+frontend/dist/
+frontend/node_modules/
+frontend/package-lock.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
