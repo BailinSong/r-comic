@@ -1,18 +1,23 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import HelloWorld from './components/HelloWorld.vue'
+import SearchToolbar from './components/SearchToolbar.vue'
 import { initFileDrop } from './dragAndDrop.js'
 import { HandleFileDrop, GetComicsFromDatabase, SearchComicsInDatabase, DeleteComicFromDatabase, GetImageBase64 } from '../wailsjs/go/main/App.js'
+
 
 const comics = ref([])
 const searchKeyword = ref('')
 const loading = ref(false)
+
 
 onMounted(() => {
   // 初始化文件拖放功能
   initFileDrop(HandleFileDrop)
   // 加载漫画列表
   loadComics()
+  
+
 })
 
 const loadComics = async () => {
@@ -22,11 +27,7 @@ const loadComics = async () => {
     console.log('[loadComics] 从数据库获取漫画数据...')
     comics.value = await GetComicsFromDatabase()
     console.log(`[loadComics] 成功加载 ${comics.value.length} 本漫画`)
-    
-    // 预加载图片
-    console.log('[loadComics] 开始预加载图片...')
-    await preloadImages()
-    console.log('[loadComics] 漫画列表加载完成')
+
   } catch (error) {
     console.error('[loadComics] 加载漫画失败:', error)
     console.error('[loadComics] 错误详情:', {
@@ -72,118 +73,12 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// 图片加载状态管理
-const imageCache = ref(new Map())
-const imageLoading = ref(new Set())
 
-const loadImage = async (imagePath) => {
-  console.log(`[loadImage] 开始加载图片: ${imagePath}`)
-  
-  if (!imagePath) {
-    console.warn('[loadImage] 图片路径为空，跳过加载')
-    return null
-  }
-  
-  // 检查缓存
-  if (imageCache.value.has(imagePath)) {
-    console.log(`[loadImage] 图片已缓存，直接返回: ${imagePath}`)
-    return imageCache.value.get(imagePath)
-  }
-  
-  // 检查是否正在加载
-  if (imageLoading.value.has(imagePath)) {
-    console.log(`[loadImage] 图片正在加载中，跳过重复请求: ${imagePath}`)
-    return null
-  }
-  
-  try {
-    console.log(`[loadImage] 开始请求图片数据: ${imagePath}`)
-    imageLoading.value.add(imagePath)
-    
-    // 构建comic://协议URL
-    const comicUrl = `comic://${imagePath}`
-    console.log(`[loadImage] 构建协议URL: ${comicUrl}`)
-    
-    const startTime = Date.now()
-    const base64Data = await GetImageBase64(comicUrl)
-    const endTime = Date.now()
-    
-    console.log(`[loadImage] 图片加载成功: ${imagePath}, 耗时: ${endTime - startTime}ms`)
-    console.log(`[loadImage] Base64数据长度: ${base64Data ? base64Data.length : 0} 字符`)
-    
-    // 缓存结果
-    imageCache.value.set(imagePath, base64Data)
-    console.log(`[loadImage] 图片已缓存: ${imagePath}`)
-    
-    return base64Data
-  } catch (error) {
-    console.error(`[loadImage] 加载图片失败: ${imagePath}`, error)
-    console.error(`[loadImage] 错误详情:`, {
-      message: error.message,
-      stack: error.stack,
-      imagePath: imagePath
-    })
-    
-    // 缓存错误状态，避免重复请求
-    imageCache.value.set(imagePath, null)
-    console.log(`[loadImage] 错误状态已缓存: ${imagePath}`)
-    return null
-  } finally {
-    imageLoading.value.delete(imagePath)
-    console.log(`[loadImage] 清理加载状态: ${imagePath}`)
-  }
-}
-
-// 预加载图片
-const preloadImages = async () => {
-  console.log('[preloadImages] 开始预加载图片')
-  console.log(`[preloadImages] 漫画数量: ${comics.value.length}`)
-  
-  let preloadCount = 0
-  for (const comic of comics.value) {
-    if (comic.firstImage && !imageCache.value.has(comic.firstImage)) {
-      console.log(`[preloadImages] 预加载图片: ${comic.firstImage}`)
-      loadImage(comic.firstImage)
-      preloadCount++
-    } else if (comic.firstImage) {
-      console.log(`[preloadImages] 图片已缓存，跳过: ${comic.firstImage}`)
-    } else {
-      console.log(`[preloadImages] 漫画无第一张图片: ${comic.title}`)
-    }
-  }
-  
-  console.log(`[preloadImages] 预加载完成，共预加载 ${preloadCount} 张图片`)
-}
-
-const handleImageError = (event) => {
-  console.error('[handleImageError] 图片加载失败:', {
-    src: event.target.src,
-    alt: event.target.alt,
-    naturalWidth: event.target.naturalWidth,
-    naturalHeight: event.target.naturalHeight
-  })
-  
-  // 图片加载失败时显示占位符
-  event.target.src = '/placeholder.png'
-  console.log('[handleImageError] 已设置占位符图片')
-}
 </script>
 
 <template>
   <div id="app" class="drop-target">
-    <div class="header">
-      <h1>R-Comic 漫画管理器</h1>
-      <div class="search-box">
-        <input 
-          v-model="searchKeyword" 
-          @keyup.enter="searchComics"
-          placeholder="搜索漫画..."
-          class="search-input"
-        />
-        <button @click="searchComics" class="search-btn">搜索</button>
-        <button @click="loadComics" class="refresh-btn">刷新</button>
-      </div>
-    </div>
+   
 
     <div class="content">
       <div v-if="loading" class="loading">加载中...</div>
@@ -233,6 +128,12 @@ const handleImageError = (event) => {
         </div>
       </div>
     </div>
+
+    <!-- 悬浮搜索工具栏 -->
+    <SearchToolbar 
+      @search="searchComics" 
+      @refresh="loadComics"
+    />
   </div>
 </template>
 
@@ -255,6 +156,8 @@ body {
   min-height: 100vh;
   width: 100%;
   background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 拖放时的视觉反馈 */
@@ -262,6 +165,10 @@ body {
   background-color: rgba(0, 123, 255, 0.1);
   border: 2px dashed #007bff;
 }
+
+
+
+
 
 /* 头部样式 */
 .header {
@@ -277,39 +184,10 @@ body {
   font-weight: 300;
 }
 
-.search-box {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.search-input {
-  flex: 1;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 25px;
-  font-size: 16px;
-  outline: none;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.search-btn, .refresh-btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 25px;
-  background: rgba(255,255,255,0.2);
-  color: white;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.search-btn:hover, .refresh-btn:hover {
-  background: rgba(255,255,255,0.3);
-}
-
 /* 内容区域 */
 .content {
   padding: 20px;
+  padding-bottom: 100px; /* 为悬浮工具栏留出空间 */
   max-width: 1200px;
   margin: 0 auto;
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed all:frontend/dist
@@ -202,22 +203,39 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "r-comic",
-		Width:  1024,
-		Height: 768,
+		Title:            "r-comic",
+		Width:            1024,
+		Height:           768,
+		MinWidth:         800,
+		MinHeight:        600,
+		MaxWidth:         0, // 0表示无限制
+		MaxHeight:        0, // 0表示无限制
+		Frameless:        false,
+		DisableResize:    false,
+		WindowStartState: options.Normal,
 		AssetServer: &assetserver.Options{
 			Assets:  assets,
 			Handler: NewFileLoader(),
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+
+		OnStartup:  app.startup,
+		OnShutdown: app.shutdown,
 		Bind: []interface{}{
 			app,
 		},
 		DragAndDrop: &options.DragAndDrop{
 			EnableFileDrop:     true,
 			DisableWebViewDrop: false,
+		},
+		Mac: &mac.Options{
+			TitleBar: &mac.TitleBar{
+				TitlebarAppearsTransparent: false,
+				HideTitle:                  false,
+				HideTitleBar:               false,
+				FullSizeContent:            false,
+				UseToolbar:                 false,
+				HideToolbarSeparator:       false,
+			},
 		},
 	})
 
