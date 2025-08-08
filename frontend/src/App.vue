@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref, computed, watch, nextTick } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import HelloWorld from './components/HelloWorld.vue'
 import SearchToolbar from './components/SearchToolbar.vue'
 import ComicCard from './components/ComicCard.vue'
@@ -11,46 +11,16 @@ const comics = ref([])
 const searchKeyword = ref('')
 const loading = ref(false)
 
-// 虚拟列表：增量渲染（批量加载）
-const BATCH_SIZE = 40
-const visibleCount = ref(BATCH_SIZE)
-const visibleComics = computed(() => comics.value.slice(0, visibleCount.value))
-const sentinel = ref(null)
-const masonry = ref(null)
-const CARD_MIN_WIDTH = 260
-const GRID_GAP = 18
-const GRID_ROW = 8
-
-const masonryStyle = computed(() => ({
-  '--col-min': `${CARD_MIN_WIDTH}px`,
-  '--gap': `${GRID_GAP}px`,
-  '--row': `${GRID_ROW}px`
-}))
-let io = null
-let ro = null
-
 
 onMounted(() => {
   // 初始化文件拖放功能
   initFileDrop(HandleFileDrop)
   // 加载漫画列表
   loadComics()
-  // 初始化观察器：滚动接近底部时增加渲染数量
-  setupIntersectionObserver()
-  setupResizeObserver()
-  setupImageLoadListeners()
-  nextTick(layoutMasonry)
 })
 
 onBeforeUnmount(() => {
-  if (io) {
-    io.disconnect()
-    io = null
-  }
-  if (ro) {
-    ro.disconnect()
-    ro = null
-  }
+  // 清理工作（如果需要的话）
 })
 
 const loadComics = async () => {
@@ -73,70 +43,12 @@ const loadComics = async () => {
   }
 }
 
+// 监听漫画数据变化
 watch(comics, () => {
-  visibleCount.value = Math.min(BATCH_SIZE, comics.value.length)
+  console.log(`漫画数量更新: ${comics.value.length}`)
 })
 
-function setupIntersectionObserver() {
-  if (!('IntersectionObserver' in window)) return
-  io = new IntersectionObserver((entries) => {
-    const entry = entries[0]
-    if (entry && entry.isIntersecting) {
-      if (visibleCount.value < comics.value.length) {
-        visibleCount.value = Math.min(visibleCount.value + BATCH_SIZE, comics.value.length)
-      }
-    }
-  }, { root: null, rootMargin: '600px 0px', threshold: 0 })
 
-  // 下一桢再观察，确保元素已渲染
-  requestAnimationFrame(() => {
-    if (sentinel.value && io) io.observe(sentinel.value)
-  })
-}
-
-function setupResizeObserver() {
-  const relayout = () => requestAnimationFrame(layoutMasonry)
-  const attach = () => {
-    if (!masonry.value) return
-    if (ro) ro.disconnect()
-    if ('ResizeObserver' in window) {
-      ro = new ResizeObserver(relayout)
-      ro.observe(masonry.value)
-    } else {
-      window.addEventListener('resize', relayout)
-    }
-    relayout()
-  }
-  requestAnimationFrame(attach)
-  watch(masonry, () => requestAnimationFrame(attach))
-  watch(visibleComics, () => requestAnimationFrame(layoutMasonry))
-}
-
-function setupImageLoadListeners() {
-  const bind = () => {
-    if (!masonry.value) return
-    const imgs = masonry.value.querySelectorAll('img')
-    imgs.forEach(img => {
-      img.removeEventListener?.('load', layoutMasonry)
-      img.addEventListener('load', layoutMasonry, { once: false })
-    })
-  }
-  nextTick(bind)
-  watch(visibleComics, () => nextTick(bind))
-}
-
-function layoutMasonry() {
-  const container = masonry.value
-  if (!container) return
-  const gap = GRID_GAP
-  const row = GRID_ROW
-  const items = container.querySelectorAll('.masonry-item')
-  items.forEach(el => {
-    const height = el.offsetHeight
-    const span = Math.max(1, Math.ceil((height + gap) / (row + gap)))
-    el.style.gridRowEnd = `span ${span}`
-  })
-}
 
 const searchComics = async () => {
   if (!searchKeyword.value.trim()) {
@@ -179,20 +91,17 @@ const deleteComic = async (comicId) => {
         <p>还没有漫画，拖放文件夹或zip文件到这里开始添加！</p>
       </div>
       
-      <div v-else class="masonry" ref="masonry" :style="masonryStyle">
+      <div v-else class="masonry">
         <div 
-          v-for="comic in visibleComics" 
+          v-for="comic in comics" 
           :key="comic.id" 
           class="masonry-item"
-          :style="{ gridRowEnd: 'span 1' }"
         >
           <ComicCard 
             :comic="comic"
             @delete="deleteComic"
           />
         </div>
-        <!-- 加载更多的侦测器 -->
-        <div ref="sentinel" class="masonry-sentinel"></div>
       </div>
     </div>
 
@@ -277,19 +186,17 @@ body {
   margin-bottom: 20px;
 }
 
-/* Masonry 布局：使用 CSS Grid 实现稳定的多列瀑布流 */
+/* 简单稳定的卡片布局 */
 .masonry {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--col-min, 260px), 1fr));
-  grid-auto-rows: var(--row, 8px);
-  gap: var(--gap, 18px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
 }
+
 .masonry-item {
-  /* gridRowEnd 在运行时根据内容高度计算并设置 */
-}
-.masonry-sentinel {
-  width: 100%;
-  height: 1px;
+  flex: 0 0 260px;
+  max-width: 260px;
 }
 
 /* 响应式设计 */
@@ -302,20 +209,21 @@ body {
     flex-direction: column;
   }
   
-  .masonry { column-count: 1; column-gap: 14px; }
+  .masonry-item {
+    flex: 0 0 calc(50% - 9px);
+    max-width: calc(50% - 9px);
+  }
 }
 
 @media (min-width: 1200px) {
   .content {
     max-width: 1520px;
   }
-  .masonry { column-count: 6; column-gap: 20px; }
 }
 
 @media (min-width: 1600px) {
   .content {
     max-width: 1680px;
   }
-  .masonry { column-count: 7; column-gap: 22px; }
 }
 </style>
