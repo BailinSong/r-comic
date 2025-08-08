@@ -121,9 +121,23 @@ const deleteComic = async (comicId) => {
   box-sizing: border-box;
 }
 
+html {
+
+  height: 100%;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f5f5f5;
+
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+
+  min-height: 100vh;
+  height: 100%;
 }
 
 /* 拖放目标样式 */
@@ -131,9 +145,11 @@ body {
   --wails-drop-target: drop;
   min-height: 100vh;
   width: 100%;
-  background-color: #f5f5f5;
+
   display: flex;
   flex-direction: column;
+  position: relative;
+  height: 100%;
 }
 
 /* 拖放时的视觉反馈 */
@@ -163,9 +179,11 @@ body {
 /* 内容区域 */
 .content {
   padding: 24px;
-  padding-bottom: 100px; /* 为悬浮工具栏留出空间 */
-  max-width: 1440px;
+
   margin: 0 auto;
+
+  min-height: 100vh;
+  flex: 1;
 }
 
 .loading {
